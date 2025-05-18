@@ -1,7 +1,6 @@
 
-// This constant is not strictly necessary if the game always starts via AI call,
-// but can be kept for reference or future direct-start scenarios.
-export const INITIAL_GAME_SCENARIO = "Mission Briefing: You are a roving investigative reporter. You've just received an encrypted tip linking a multinational biotech firm, 'NovaGen', to secret, unethical human-testing trials. Your mission: Gather irrefutable proof, expose NovaGen, and protect your sources. The journey begins now. What's your first move to manage your digital footprint before diving deeper?";
+// This constant is no longer used as the game is script-driven.
+// export const INITIAL_GAME_SCENARIO = "Mission Briefing: ...";
 
 export const PRIVACY_EXPLAINED_CONTENT = [
   {
@@ -133,3 +132,4 @@ export const RESOURCE_LINKS = [
   }
 ];
 
+    
