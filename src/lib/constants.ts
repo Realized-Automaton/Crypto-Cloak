@@ -58,6 +58,10 @@ export const PRIVACY_EXPLAINED_CONTENT = [
         title: '"Only criminals need privacy."',
         text: "This is a dangerous myth. Privacy is a fundamental human right. Everyone benefits from privacy, whether it's to protect personal data, secure business operations, or simply maintain autonomy over one's financial life. Assuming only illicit actors seek privacy is a fallacy used to justify mass surveillance.",
       },
+      {
+        title: '"Privacy tools are too complicated for average users."',
+        text: "While some advanced privacy techniques can have a steeper learning curve, many user-friendly wallets and services are emerging that simplify privacy-enhancing features like CoinJoin or using privacy coins. The ecosystem is constantly improving accessibility."
+      }
     ],
   },
 ];
@@ -132,4 +136,7 @@ export const RESOURCE_LINKS = [
   }
 ];
 
+// Game Script - Moved to its own file: src/lib/game-script.ts
+// export const INITIAL_GAME_SCENARIO and other game-specific constants are also there.
+// This file (constants.ts) is now primarily for static content like PRIVACY_EXPLAINED_CONTENT.
     
