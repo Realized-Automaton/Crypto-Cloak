@@ -5,14 +5,16 @@ import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertTriangle, CornerDownRight, RotateCcw, ShieldCheck, ShieldAlert, ShieldQuestion, PlayCircle, KeyRound, Trophy, Share2, Puzzle, XCircle, CheckSquare } from 'lucide-react';
+import { Loader2, AlertTriangle, CornerDownRight, RotateCcw, ShieldCheck, ShieldAlert, ShieldQuestion, PlayCircle, KeyRound, Trophy, Share2, CheckSquare, XCircle } from 'lucide-react';
+import { Puzzle } from 'lucide-react'; // Explicitly import Puzzle
 import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile
+import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { gameScript, INITIAL_SCENE_ID, INITIAL_PRIVACY_SCORE, type GameScene, type GameChoice, type MiniPuzzle } from '@/lib/game-script';
 import type { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MetadataItemClientState {
   id: string;
@@ -31,11 +33,12 @@ export default function GameSimulatorClient() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const isMobile = useIsMobile(); // Get mobile state
+  const isMobile = useIsMobile();
 
   const [metadataPuzzleItems, setMetadataPuzzleItems] = useState<MetadataItemClientState[]>([]);
   const [metadataPuzzleAttempts, setMetadataPuzzleAttempts] = useState<number>(0);
   const [displayedNarrative, setDisplayedNarrative] = useState<string>('');
+  const [animateUnlockCode, setAnimateUnlockCode] = useState(false);
 
 
   const startGame = useCallback(() => {
@@ -72,20 +75,34 @@ export default function GameSimulatorClient() {
 
   useEffect(() => {
     if (currentScene?.narrative) {
-      setDisplayedNarrative(''); // Reset for new narrative
+      setDisplayedNarrative(''); 
       let index = 0;
-      const narrativeText = currentScene.narrative; // Capture current narrative
+      const narrativeText = currentScene.narrative; 
       const intervalId = setInterval(() => {
-        setDisplayedNarrative((prev) => prev + narrativeText[index]);
-        index++;
-        if (index === narrativeText.length) {
+        if (index < narrativeText.length) {
+          setDisplayedNarrative((prev) => prev + narrativeText[index]);
+          index++;
+        } else {
           clearInterval(intervalId);
         }
-      }, 30); // Typewriter speed: 30ms per character
+      }, 30); 
 
-      return () => clearInterval(intervalId); // Cleanup on component unmount or narrative change
+      return () => clearInterval(intervalId); 
     }
   }, [currentScene?.narrative]);
+
+  const isWin = currentScene?.isGameOver && currentScene.isWin === true;
+
+  useEffect(() => {
+    if (isWin && privacyScore >= 100) {
+      const timer = setTimeout(() => {
+        setAnimateUnlockCode(true);
+      }, 1000); 
+      return () => clearTimeout(timer);
+    } else {
+      setAnimateUnlockCode(false); 
+    }
+  }, [isWin, privacyScore]);
 
 
   const handleStartGameClick = () => {
@@ -105,20 +122,19 @@ export default function GameSimulatorClient() {
     if (!currentScene || currentScene.miniPuzzle?.type !== 'MetadataRedaction' || !metadataPuzzleItems) {
       return;
     }
-
+  
     const sensitiveItems = metadataPuzzleItems.filter(item => item.sensitive);
     const selectedSensitiveItems = metadataPuzzleItems.filter(item => item.sensitive && item.selected);
     const incorrectlySelectedNonSensitiveItems = metadataPuzzleItems.filter(item => !item.sensitive && item.selected);
-
+  
     let outcome: 'perfect' | 'good' | 'partial' | 'poor' = 'poor';
     let scoreEffect = 0;
     let feedback = "";
     let nextId = "";
     let flagsToSet: string[] = [];
-
+  
     const currentAttempt = metadataPuzzleAttempts;
     
-
     if (selectedSensitiveItems.length === sensitiveItems.length && incorrectlySelectedNonSensitiveItems.length === 0) {
       outcome = 'perfect';
       scoreEffect = 5; 
@@ -127,16 +143,16 @@ export default function GameSimulatorClient() {
       flagsToSet = ['metadata_redacted_perfectly'];
     } else if (selectedSensitiveItems.length >= sensitiveItems.length * 0.7 && incorrectlySelectedNonSensitiveItems.length <= 1) {
       outcome = 'good';
-      scoreEffect = 5; 
+      scoreEffect = 5;
       feedback = "Good job! Most sensitive metadata redacted. Minor risks remain.";
       nextId = 'reykjavik_metadata_redacted';
       flagsToSet = ['metadata_redacted_well'];
     } else if (selectedSensitiveItems.length >= sensitiveItems.length * 0.4) {
       outcome = 'partial';
-      scoreEffect = 0;
+      scoreEffect = 0; 
       feedback = "Partial redaction. Some sensitive data might be exposed.";
       if (currentAttempt === 0) {
-        nextId = 'reykjavik_metadata_auto_redact'; 
+        nextId = 'reykjavik_upload_choice_no_redact'; 
         flagsToSet = ['metadata_redacted_partially'];
       } else { 
         nextId = 'reykjavik_upload_choice_no_redact'; 
@@ -146,7 +162,7 @@ export default function GameSimulatorClient() {
       }
     } else { 
       outcome = 'poor';
-      scoreEffect = -10;
+      scoreEffect = -10; 
       feedback = "Poor redaction. Significant sensitive data may still be exposed.";
        if (currentAttempt === 0) {
         nextId = 'reykjavik_upload_choice_no_redact'; 
@@ -158,17 +174,17 @@ export default function GameSimulatorClient() {
         scoreEffect = -20; 
       }
     }
-
+  
     setMetadataPuzzleAttempts(prev => prev + 1);
-
+  
     if (currentAttempt === 0 && (outcome === 'partial' || outcome === 'poor')) {
       toast({
         title: "Redaction Attempt 1",
         description: `${feedback} You have one more attempt. Please review your selections.`,
-        variant: "destructive",
-        duration: 5000,
+        variant: isMobile ? 'mobileDefault' : 'default',
+        duration: 3000,
       });
-      if (scoreEffect !== 0) {
+      if (scoreEffect !== 0 && outcome === 'poor') { 
          const newPrivacyScore = Math.max(0, Math.min(100, privacyScore + scoreEffect));
          setPrivacyScore(newPrivacyScore);
          toast({
@@ -178,9 +194,9 @@ export default function GameSimulatorClient() {
             duration: 3000,
          });
       }
-      return; // Don't proceed to next scene yet
+      return; 
     }
-
+  
     const syntheticChoice: GameChoice = {
       text: `Finalized metadata redaction (Attempt: ${currentAttempt + 1}, Outcome: ${outcome})`,
       nextSceneId: nextId,
@@ -202,9 +218,73 @@ export default function GameSimulatorClient() {
     if (choice.privacyScoreEffect) {
       scoreAfterThisChoice = Math.max(0, Math.min(100, privacyScore + choice.privacyScoreEffect));
     }
+   
+    // Safeguard: Prevent reset to MissionBriefing if already in Berlin and choosing to scout Viktoriapark
+    if (currentSceneId === "berlin_setup_comms" && 
+        (choice.text.toLowerCase().includes("scope out viktoriapark") || choice.text.toLowerCase().includes("viktoriapark_scout")) &&
+        choice.nextSceneId === INITIAL_SCENE_ID 
+    ) {
+        console.warn("CLIENT OVERRIDE (Viktoriapark Scout): Forcing correct outcome for Viktoriapark scouting from berlin_setup_comms.");
+        const overrideChoice : GameChoice = {
+            text: "First, thoroughly scope out Viktoriapark for any signs of NovaGen surveillance.",
+            nextSceneId: "berlin_viktoriapark_scout",
+            privacyScoreEffect: 5,
+            feedback: "Good call scouting first. You spot potential surveillance. +5 Score.",
+            setsFlags: ["viktoriapark_scouted"]
+        }
+        setCurrentSceneId(overrideChoice.nextSceneId);
+        if (overrideChoice.privacyScoreEffect) setPrivacyScore(Math.max(0, Math.min(100, privacyScore + overrideChoice.privacyScoreEffect)));
+        if (overrideChoice.setsFlags) setPlayerFlags(prev => ({...prev, ...overrideChoice.setsFlags!.reduce((acc, flag) => ({...acc, [flag]: true}), {})}));
+        toast({ title: "Privacy Update", description: overrideChoice.feedback || "Score updated.", variant: isMobile ? 'mobileDefault' : 'default', duration: 3000 });
+        setIsLoading(false);
+        return;
+    }
 
-    if (currentScene.id !== INITIAL_SCENE_ID && choice.nextSceneId === INITIAL_SCENE_ID && !currentScene.isGameOver) {
-        console.error("CLIENT SAFEGUARD: Game tried to reset to MissionBriefing mid-game. Blocking.");
+    // Safeguard: Prevent reset if choosing how to analyze first USB (from Viktoriapark)
+    const usbAnalysisChoices = [
+      "Head back to your home base to analyze it on your main laptop.",
+      "Find a nearby internet cafe to quickly check the USB (risky).",
+      "Use your burner phone and a secure cloud service to inspect the files."
+    ];
+    if (currentSceneId === "berlin_viktoriapark_retrieve_success" && 
+        usbAnalysisChoices.some(c => choice.text.includes(c)) &&
+        choice.nextSceneId === INITIAL_SCENE_ID
+    ) {
+        console.warn("CLIENT OVERRIDE (USB A Analysis from Viktoriapark): Forcing correct outcome for analyzing USB A.");
+        let overrideNextSceneId = "berlin_analyze_usb_A_securely"; 
+        let overrideFeedback = "USB A securely analyzed. Urgent message from Lynx found!";
+        let overrideScoreEffect = 5;
+        let newFlags = ["usb_A_retrieved", "discovered_prague_lead"];
+
+        if (choice.text.includes("internet cafe")) {
+          overrideNextSceneId = "berlin_analyze_usb_A_cafe";
+          overrideFeedback = "USB A analyzed at cafe. Risky, but urgent message found!";
+          overrideScoreEffect = -5;
+          newFlags.push("cafe_usb_compromised");
+        } else if (choice.text.includes("burner phone")) {
+          overrideNextSceneId = "berlin_analyze_usb_A_burner_cloud";
+          overrideFeedback = "USB A analyzed via burner/cloud. Urgent message found!";
+          overrideScoreEffect = 2;
+        }
+        
+        const overrideChoice : GameChoice = {
+            ...choice, 
+            nextSceneId: overrideNextSceneId,
+            privacyScoreEffect: overrideScoreEffect,
+            feedback: overrideFeedback,
+            setsFlags: newFlags
+        }
+        setCurrentSceneId(overrideChoice.nextSceneId);
+        if (overrideChoice.privacyScoreEffect) setPrivacyScore(Math.max(0, Math.min(100, privacyScore + overrideChoice.privacyScoreEffect)));
+        if (overrideChoice.setsFlags) setPlayerFlags(prev => ({...prev, ...overrideChoice.setsFlags!.reduce((acc, flag) => ({...acc, [flag]: true}), {})}));
+        toast({ title: "Privacy Update", description: overrideChoice.feedback || "Score updated.", variant: isMobile ? 'mobileDefault' : 'default', duration: 3000 });
+        setIsLoading(false);
+        return;
+    }
+
+    // General safeguard for other unexpected resets to MissionBriefing mid-game
+    if (currentSceneId !== INITIAL_SCENE_ID && choice.nextSceneId === INITIAL_SCENE_ID && !currentScene.isGameOver) {
+        console.error("CLIENT SAFEGUARD (General): Game tried to reset to MissionBriefing mid-game. Blocking.", "Current Scene:", currentSceneId, "Player choice:", choice);
         setError("A narrative error occurred. The game tried to reset unexpectedly. Please try restarting or making a different choice if this persists.");
         setIsLoading(false);
         return;
@@ -225,8 +305,8 @@ export default function GameSimulatorClient() {
       }
       setPlayerFlags(newFlags);
 
-      const feedbackText = choice.feedback || (choice.privacyScoreEffect ? `Security score changed by ${choice.privacyScoreEffect}.` : "Privacy Score: No specific update provided this turn.");
-      if (choice.feedback || choice.privacyScoreEffect || choice.nextSceneId !== INITIAL_SCENE_ID) {
+      const feedbackText = choice.feedback || (choice.privacyScoreEffect ? `Security score changed by ${choice.privacyScoreEffect}.` : "Security Score: No specific update provided this turn.");
+      if (choice.feedback || choice.privacyScoreEffect) {
          toast({
           title: "Privacy Update",
           description: feedbackText,
@@ -245,28 +325,30 @@ export default function GameSimulatorClient() {
         });
       }
 
+      let finalNextSceneId = choice.nextSceneId;
 
+      // Determine final win/loss state
       if (choice.nextSceneId === 'final_outcome_evaluation' || (currentScene.id === 'reykjavik_upload_complete_check_score' && choice.nextSceneId === 'final_outcome_evaluation')) {
         if (scoreAfterThisChoice >= 100) {
-            setCurrentSceneId('gameOver_win_perfect');
+            finalNextSceneId = 'gameOver_win_perfect';
+            localStorage.setItem('cryptoCloakFlawlessVictory', 'true');
         } else if (scoreAfterThisChoice >= 80) {
-            setCurrentSceneId('gameOver_win_standard');
+            finalNextSceneId = 'gameOver_win_standard';
         } else {
             if (newFlags.self_exposed_reykjavik || newFlags.cafe_usb_compromised || newFlags.metadata_redacted_critically_failed) {
-                 setCurrentSceneId('gameOver_lose_exposed_during_upload'); 
+                 finalNextSceneId = 'gameOver_lose_exposed_during_upload'; 
             } else if (newFlags.lynx_possibly_compromised_prague || newFlags.lynx_compromised) {
-                 setCurrentSceneId('gameOver_lose_lynx_compromised');
+                 finalNextSceneId = 'gameOver_lose_lynx_compromised';
             } else {
-                 setCurrentSceneId('gameOver_lose_insufficient_evidence');
+                 finalNextSceneId = 'gameOver_lose_insufficient_evidence';
             }
         }
-      } else {
-        // Reset attempts if not continuing the same puzzle OR if moving to a non-puzzle scene
-        if(choice.nextSceneId !== currentSceneId && !gameScript[choice.nextSceneId]?.miniPuzzle) {
-            setMetadataPuzzleAttempts(0);
-        }
-        setCurrentSceneId(choice.nextSceneId);
       }
+        
+      if(finalNextSceneId !== currentSceneId && !gameScript[finalNextSceneId]?.miniPuzzle) {
+          setMetadataPuzzleAttempts(0);
+      }
+      setCurrentSceneId(finalNextSceneId);
       setIsLoading(false);
     }, 500);
   };
@@ -373,7 +455,7 @@ export default function GameSimulatorClient() {
     );
   }
 
-  const isWin = currentScene?.isGameOver && currentScene.isWin === true;
+  
   const isLose = currentScene?.isGameOver && currentScene.isWin === false;
   const isMetadataPuzzleActive = currentScene.miniPuzzle?.type === 'MetadataRedaction' && !currentScene.isGameOver;
 
@@ -389,7 +471,6 @@ export default function GameSimulatorClient() {
         </div>
       </CardHeader>
 
-      {/* Conditionally render the new win image OR the current scene image */}
       {currentScene.isGameOver && isWin ? (
         <div className="p-6 border-b bg-secondary/20 flex justify-center">
           <div className="rounded-lg overflow-hidden shadow-md max-w-xl">
@@ -403,9 +484,22 @@ export default function GameSimulatorClient() {
             />
           </div>
         </div>
-      ) : currentScene.image ? (
-         <div className="p-6 border-b bg-secondary/20">
-          <div className="rounded-lg overflow-hidden shadow-md">
+      ) : currentScene.isGameOver && isLose && currentScene.image ? (
+         <div className="p-6 border-b bg-secondary/20 flex justify-center">
+          <div className="rounded-lg overflow-hidden shadow-md max-w-xl">
+            <Image
+              src={currentScene.image} 
+              alt={currentScene.locationTitle || "Scene image"}
+              width={800}
+              height={533}
+              className="w-full h-auto object-cover"
+              data-ai-hint={currentScene.imageHint || "scene context"}
+            />
+          </div>
+        </div>
+      ) : !currentScene.isGameOver && currentScene.image ? (
+         <div className="p-6 border-b bg-secondary/20 flex justify-center">
+          <div className="rounded-lg overflow-hidden shadow-md max-w-xl">
             <Image
               src={currentScene.image}
               alt={currentScene.locationTitle || "Scene image"}
@@ -419,27 +513,35 @@ export default function GameSimulatorClient() {
       ) : null}
 
 
-      <ScrollArea className="h-[calc(100vh-450px)] md:h-[520px]" hideScrollbarVisuals>
+      <ScrollArea className="h-[calc(100vh-450px)] md:h-[520px]" hideScrollbarVisuals={currentScene.isGameOver ? true : false}>
         <CardContent className="p-6 space-y-6">
-          <div className="relative w-full my-4">
-            <div className="relative z-10">
-              <Image
-                src="https://i.ibb.co/bj5f4vsd/laptop-clean-screen.png"
-                alt="Laptop screen displaying narrative"
-                width={1200}
-                height={800}
-                className="w-full h-auto"
-                data-ai-hint="laptop computer"
-              />
+        {!currentScene.isGameOver && (
+            <div className="relative w-full my-4">
+              <div className="relative z-10">
+                <Image
+                  src="https://i.ibb.co/bj5f4vsd/laptop-clean-screen.png"
+                  alt="Laptop screen displaying narrative"
+                  width={1200}
+                  height={800}
+                  className="w-full h-auto"
+                  data-ai-hint="laptop computer"
+                />
+              </div>
+              <div className="absolute top-[10%] bottom-[18%] left-[14%] right-[14%] z-20">
+                <ScrollArea className="w-full h-full bg-white/5 rounded-sm border border-gray-700/30" hideScrollbarVisuals>
+                  <p className="text-sm sm:text-base text-gray-900 dark:text-gray-800 leading-relaxed whitespace-pre-wrap p-3">
+                    {displayedNarrative}
+                  </p>
+                </ScrollArea>
+              </div>
             </div>
-            <div className="absolute top-[10%] bottom-[18%] left-[14%] right-[14%] z-20">
-              <ScrollArea className="w-full h-full bg-white/5 rounded-sm border border-gray-700/30" hideScrollbarVisuals>
-                <p className="text-sm sm:text-base text-gray-900 dark:text-gray-800 leading-relaxed whitespace-pre-wrap p-3">
-                  {displayedNarrative}
-                </p>
-              </ScrollArea>
-            </div>
-          </div>
+          )}
+
+          {currentScene.isGameOver && (
+             <p className="text-lg text-foreground/90 leading-relaxed whitespace-pre-wrap p-3 text-center">
+                {currentScene.narrative}
+             </p>
+          )}
 
           {currentScene.miniPuzzle && !currentScene.isGameOver && (
             <div className="p-4 border-l-4 border-accent bg-accent/10 rounded-md">
@@ -482,14 +584,11 @@ export default function GameSimulatorClient() {
               <h3 className="text-2xl font-semibold mb-2">
                 {privacyScore >= 100 ? "Flawless Victory! Master of Privacy!" : "Victory! You're a Privacy Pro!"}
               </h3>
-              <p className="text-white/90 mb-1 whitespace-pre-wrap">
-                {currentScene.gameOverMessage || (privacyScore >= 100 ? "You've flawlessly navigated the digital shadows, exposed NovaGen, and protected everyone. Your skills are legendary!" : "You've successfully exposed NovaGen's crimes and protected your sources. Well done, Detective!")}
-              </p>
                {privacyScore >= 100 && (
-                <p className="text-yellow-300 font-semibold mb-1 text-lg">Flawless Operation! Perfect Score: {privacyScore}/100!</p>
-              )}
+                  <p className="text-yellow-300 font-semibold mt-2 mb-1 text-lg">Flawless Operation! Perfect Score: {privacyScore}/100!</p>
+               )}
                {privacyScore < 100 && privacyScore >=80 && (
-                 <p className="text-white/90 mb-6">Your final security score: <span className="font-bold text-xl">{privacyScore}/100</span></p>
+                 <p className="text-white/90 mb-4">Your final security score: <span className="font-bold text-xl">{privacyScore}/100</span></p>
                )}
               <Button
                 size="lg"
@@ -503,6 +602,14 @@ export default function GameSimulatorClient() {
               <Button onClick={startGame} variant="outline" size="lg" className="bg-white/20 hover:bg-white/30 text-white border-white hover:border-yellow-300 transition-all duration-150 ease-in-out hover:scale-105">
                 <RotateCcw className="mr-2 h-5 w-5" /> Play Again
               </Button>
+              {privacyScore >= 100 && (
+                <p className={cn(
+                  "text-yellow-200 mt-4 text-center text-sm font-mono tracking-wider transition-opacity duration-2000 ease-in-out",
+                  animateUnlockCode ? "opacity-100" : "opacity-0"
+                )}>
+                  8,6,7,5,3,0,9
+                </p>
+              )}
             </div>
           ) : (
             <div className="w-full text-center">
@@ -577,3 +684,4 @@ export default function GameSimulatorClient() {
   );
 }
 
+    
