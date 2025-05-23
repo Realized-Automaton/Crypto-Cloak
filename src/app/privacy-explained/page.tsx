@@ -19,8 +19,8 @@ export default function PrivacyExplainedPage() {
   const [clickedSequence, setClickedSequence] = useState<number[]>([]);
   const [showVideoPlayer, setShowVideoPlayer] = useState<boolean>(false);
   const targetSequence = [8, 6, 7, 5, 3, 0, 9]; 
-  const videoId = 'j7V2_jQ_QUU'; 
-  const videoStartTime = 0; // Start from the beginning
+  const videoId = 'J_qxqU-Jyyw'; 
+  const videoStartTime = 0; 
 
   useEffect(() => {
     console.log("--- PRIVACY EXPLAINED PAGE: useEffect RUNNING ---");
@@ -31,10 +31,8 @@ export default function PrivacyExplainedPage() {
       setShowVideoPlayer(false);
     };
 
-    // Initial reset on mount
-    resetEasterEggStates();
+    resetEasterEggStates(); // Reset on initial mount
 
-    // Handle bfcache restoration
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
         console.log("Page restored from bfcache, resetting Easter egg states.");
@@ -42,7 +40,7 @@ export default function PrivacyExplainedPage() {
       }
     };
     window.addEventListener('pageshow', handlePageShow);
-
+    
     let unlocked = false;
     if (typeof window !== 'undefined') {
       const storedValue = localStorage.getItem('cryptoCloakFlawlessVictory');
@@ -50,23 +48,30 @@ export default function PrivacyExplainedPage() {
       if (storedValue === 'true') {
         unlocked = true;
         console.log("2. Decision: Feature IS UNLOCKED based on localStorage.");
+        console.warn(
+          "ATTENTION: Numbered paragraphs are currently ENABLED because 'cryptoCloakFlawlessVictory' is 'true' in your browser's Local Storage. " +
+          "A 'hard refresh' (Ctrl+Shift+R or Cmd+Shift+R) DOES NOT clear Local Storage. " +
+          "To test the page as if the feature is locked (i.e., without numbers), you MUST manually clear this item. " +
+          "Go to Developer Tools -> Application -> Local Storage, find the item 'cryptoCloakFlawlessVictory', and delete it. Then refresh the page."
+        );
       } else {
+        unlocked = false;
         console.log("2. Decision: Feature IS NOT UNLOCKED (localStorage value is not 'true' or item not found).");
-        unlocked = false; // Ensure it's explicitly false
       }
     } else {
       console.log("1. localStorage not available (e.g., SSR).");
       console.log("2. Decision: Feature IS NOT UNLOCKED (SSR).");
-      unlocked = false; // Ensure it's explicitly false
+      unlocked = false; 
     }
     setIsFeatureUnlocked(unlocked);
     console.log("3. State 'isFeatureUnlocked' SET TO:", unlocked);
     
+    // Reset counter after determining unlock status
     paragraphCounter.current = 0; 
     if (unlocked) {
       console.log("4. Paragraph counter reset to 0 because feature IS unlocked (within useEffect).");
     } else {
-      console.log("4. Paragraph counter reset to 0 because feature IS NOT unlocked (within useEffect).");
+      console.log("4. Paragraph counter confirmed/set to 0 because feature IS NOT unlocked (within useEffect).");
     }
 
     setIsLoadingStorage(false);
@@ -97,7 +102,7 @@ export default function PrivacyExplainedPage() {
         setClickedSequence([]); 
       }
     } else {
-      // If the sequence is broken, check if the current click is the start of a new valid sequence
+      // If the current click starts a new correct sequence, keep it. Otherwise, reset.
       if (paragraphNumber === targetSequence[0]) {
         setClickedSequence([paragraphNumber]);
       } else {
@@ -111,16 +116,10 @@ export default function PrivacyExplainedPage() {
     return <div className="text-center p-10">Loading Privacy Insights...</div>;
   }
   
-  console.log("--- PRIVACY EXPLAINED PAGE: PRE-RENDER FULL CONTENT ---");
-  console.log("Current 'isFeatureUnlocked' state:", isFeatureUnlocked);
-  
+  // Reset paragraph counter before rendering the list if the feature is unlocked.
+  // This ensures numbering is always fresh for each render pass.
+  console.log(`--- PRIVACY EXPLAINED PAGE (pre-render): isFeatureUnlocked is currently: ${isFeatureUnlocked}. Paragraph counter will be reset.`);
   paragraphCounter.current = 0;
-  if (isFeatureUnlocked) {
-    console.log("Paragraph counter reset to 0 because feature IS unlocked (pre-map).");
-  } else {
-    console.log("Paragraph counter confirmed/set to 0 because feature IS NOT unlocked (pre-map).");
-  }
-  console.log("Paragraph counter value immediately before map:", paragraphCounter.current);
 
 
   return (
